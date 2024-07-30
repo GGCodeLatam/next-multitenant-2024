@@ -29,7 +29,7 @@ export async function middleware(req: NextRequest) {
   // If it's a main domain, allow the request to proceed
   if (isMainDomain) {
     console.log('Middleware: Main domain detected, passing through');
-    return NextResponse.next();
+    return NextResponse.rewrite(new URL(`/app${url.pathname}`, req.url));
   }
 
   // Handle subdomain logic
