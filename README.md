@@ -1,36 +1,130 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Next Multitenant 2024 🚀
 
-## Getting Started
+&#x20;    &#x20;
 
-First, run the development server:
+> **TL;DR**\
+> Minimal boilerplate to launch a **multi‑tenant SaaS** with **Next.js 14 (App Router)**, unlimited sub‑domains, and instant deploy on **Vercel**. Fork it, add business logic, ship.
+
+## Why this repo?
+
+In **May 2024** I published a detailed walkthrough on Medium — ["How to create a multi‑tenant app with Next 13‑14 App Router"](https://medium.com/@gg.code.latam/how-create-a-multi-tenant-app-with-next-js-13-14-app-router-7a30fb5f8454). Readers asked for a complete, ready‑to‑fork code base; this repository is that companion.
+
+### Key features
+
+- **Wildcard sub‑domains** (`tenant.your‑domain.com`) handled in `middleware.ts`
+- Lean file structure that scales to auth, billing, analytics, etc.
+- Example integrations: **Supabase** (Postgres + Auth) and **Cloudflare** (DNS management)
+- Developer happiness: strict TypeScript, ESLint, Prettier, **Tailwind CSS + shadcn/ui** components
+
+## Quick start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+git clone https://github.com/GGCodeLatam/next-multitenant-2024.git
+cd next-multitenant-2024
+cp .env.example .env   # add your Supabase keys
+pnpm install           # or yarn / npm / bun
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit [http://tenant.localhost:3000](http://tenant.localhost:3000). The middleware rewrites the path to `/tenant`. Add extra tenants in `subdomains.json`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Folder layout
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+```
+.
+├── app/
+│   ├── [subdomain]/
+│   │   └── page.tsx        <- tenant‑specific UI
+│   ├── layout.tsx          <- global layout
+│   └── page.tsx            <- public landing page
+├── lib/
+│   ├── supabase/           <- SSR client + helpers
+│   └── utils/
+├── prisma/                 <- optional multi‑tenant schema
+├── middleware.ts           <- sub‑domain routing logic
+└── …
+```
 
-## Learn More
+## How it works
 
-To learn more about Next.js, take a look at the following resources:
+1. **Edge Middleware** intercepts every request.
+2. It extracts the host header and checks for an allowed sub‑domain.
+3. When matched, it rewrites to `/${subdomain}${pathname}`; otherwise, the request continues.
+4. The folder `` renders the tenant experience.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```ts
+// middleware.ts
+import { NextResponse } from 'next/server';
+import subdomains from './subdomains.json';
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+export const config = {
+  matcher: [
+    '/((?!api/|_next/|_static/|_vercel|[\\w-]+\\.\\w+).*)',
+  ],
+};
 
-## Deploy on Vercel
+export default function middleware(req) {
+  const { hostname } = req.nextUrl;
+  const sub = hostname.split('.')[0];
+  if (subdomains.some((t) => t.subdomain === sub)) {
+    return NextResponse.rewrite(
+      new URL(`/${sub}${req.nextUrl.pathname}`, req.url),
+    );
+  }
+  return NextResponse.next();
+}
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+> **Note:** The middleware runs in the *Edge Runtime*. Access tenant data through internal APIs (`/api/...`) or a lightweight cache.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+## Environment variables
+
+Rename `.env.example` to `.env` and fill in:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=   # Your Supabase project URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY=   # Public anon key
+SUPABASE_SERVICE_ROLE_KEY=   # Optional, for seed / admin scripts
+```
+
+## Useful scripts
+
+| Command               | Description                        |
+| --------------------- | ---------------------------------- |
+| `pnpm dev`            | Development server with hot reload |
+| `pnpm build`          | Production build                   |
+| `pnpm start`          | Serve the build with Node          |
+| `pnpm lint`           | Run ESLint + TypeScript checks     |
+| `pnpm prisma db push` | Sync the Prisma schema             |
+
+## Deploy to Vercel
+
+1. Import this repository into Vercel.
+2. Add your domain and enable the `*.` **Wildcard Domain**.
+3. Set the environment variables shown above.
+4. Done — each tenant resolves at `sub.your‑domain.com`.
+
+Deploying elsewhere? Map the wildcard DNS (Cloudflare works great) and ensure your platform supports wildcard hosts.
+
+## Roadmap
+
+-
+
+## Contributing
+
+Issues and pull requests are welcome.
+
+1. **Fork** the repo
+2. Create a branch: `git checkout -b feat/my-feature`
+3. Commit: `git commit -m "feat: add something cool"`
+4. Push: `git push origin feat/my-feature`
+5. Open a Pull Request
+
+## License
+
+[MIT](LICENSE)
+
+---
+
+If this project helps you, feel free to star the repository and share it.
+
