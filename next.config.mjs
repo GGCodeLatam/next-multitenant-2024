@@ -8,7 +8,7 @@ const nextConfig = {
           destination: '/:path*',
         },
         {
-          source: '/',
+          source: '/app',
           destination: '/api/tenant',
         },
       ]
